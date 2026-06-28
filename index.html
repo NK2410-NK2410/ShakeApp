@@ -374,6 +374,7 @@
   <button class="tab-btn active" id="tab-coach" onclick="switchTab('coach')">Coach</button>
   <button class="tab-btn" id="tab-counter" onclick="switchTab('counter')">Theke <span id="badge" class="badge" style="display:none">0</span></button>
   <button class="tab-btn" id="tab-admin" onclick="switchTab('admin')">Admin</button>
+  <span id="conn-status" style="display:flex;align-items:center;padding:0 8px;font-size:14px;cursor:default;" title="Verbinde…">⏳</span>
   <!-- Pin dropdown -->
   <div class="pin-dropdown-wrap">
     <button class="pin-icon-btn" id="pin-icon-btn" onclick="togglePinDropdown()" title="Ansicht fixieren">
@@ -677,6 +678,7 @@ function saveShakeSettings() {
     s.textcol = s.color;
   });
   localStorage.setItem('shake-settings', JSON.stringify(shakeSettings));
+  saveShakeSettingsRemote();
   applyShakeSettings();
   renderShakeEditor();
   renderGrids();
@@ -776,7 +778,7 @@ const SHAKE_TAG_CLS = { Red:'red',     AfterEight:'aftereight', Green:'green' };
 })();
 
 // ── State ─────────────────────────────────────────────────────────────────────
-let orders = JSON.parse(localStorage.getItem('shake-orders') || '[]');
+let orders = [];
 let counts = {};
 let togoItems = [];
 let shakeNotes = {};
@@ -799,7 +801,95 @@ function initCounts() {
 }
 initCounts();
 
-function saveOrders() { localStorage.setItem('shake-orders', JSON.stringify(orders)); }
+// ── Firebase ──────────────────────────────────────────────────────────────────
+const FB_URL = 'https://shakeapp-b680b-default-rtdb.europe-west1.firebasedatabase.app';
+
+function fbFetch(path, method, data) {
+  const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
+  if (data !== undefined) opts.body = JSON.stringify(data);
+  return fetch(FB_URL + path + '.json', opts).then(r => r.json());
+}
+
+function saveOrders() {
+  // Write full orders array to Firebase
+  fbFetch('/orders.json', 'PUT', orders).catch(e => console.error('Firebase write error:', e));
+}
+
+function saveShakeSettingsRemote() {
+  fbFetch('/settings/shakes.json', 'PUT', shakeSettings).catch(e => console.error('Firebase settings write error:', e));
+}
+
+function setConnectionStatus(state) {
+  const el = document.getElementById('conn-status');
+  if (!el) return;
+  if (state === 'online')  { el.textContent = '🟢'; el.title = 'Verbunden'; }
+  if (state === 'offline') { el.textContent = '🔴'; el.title = 'Keine Verbindung'; }
+  if (state === 'loading') { el.textContent = '⏳'; el.title = 'Verbinde…'; }
+}
+
+function loadFromFirebase(callback) {
+  setConnectionStatus('loading');
+  fbFetch('/orders.json', 'GET')
+    .then(data => {
+      orders = Array.isArray(data) ? data : (data ? Object.values(data) : []);
+      // Sort newest first
+      orders.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setConnectionStatus('online');
+      if (callback) callback();
+    })
+    .catch(() => {
+      setConnectionStatus('offline');
+      // Fall back to localStorage
+      orders = JSON.parse(localStorage.getItem('shake-orders') || '[]');
+      if (callback) callback();
+    });
+}
+
+function loadSettingsFromFirebase() {
+  fbFetch('/settings/shakes.json', 'GET')
+    .then(data => {
+      if (data && Array.isArray(data)) {
+        shakeSettings = data;
+        localStorage.setItem('shake-settings', JSON.stringify(shakeSettings));
+        applyShakeSettings();
+        renderGrids();
+      }
+    })
+    .catch(() => {/* use localStorage fallback already loaded */});
+}
+
+// Poll Firebase every 5 seconds for real-time updates
+function startFirebasePolling() {
+  setInterval(() => {
+    fbFetch('/orders.json', 'GET')
+      .then(data => {
+        const fresh = Array.isArray(data) ? data : (data ? Object.values(data) : []);
+        fresh.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setConnectionStatus('online');
+
+        // Check for new orders to trigger notifications
+        const currentIds = new Set(orders.map(o => o.id));
+        fresh.forEach(o => {
+          if (!currentIds.has(o.id) && !shownNewToast.has(o.id)) {
+            const isCounterVisible = document.getElementById('counter-view').classList.contains('active');
+            if (isCounterVisible) {
+              showToast('🆕 Neue Bestellung: ' + o.courseName + ' (' + o.coachName + ')', false);
+              playSound('new');
+            }
+            shownNewToast.add(o.id);
+            updateBadge();
+          }
+        });
+
+        orders = fresh;
+        // Re-render only if counter or admin tab is active
+        if (document.getElementById('counter-view').classList.contains('active')) renderCounter();
+        if (document.getElementById('admin-view').classList.contains('active') && adminUnlocked) renderAdmin();
+      })
+      .catch(() => setConnectionStatus('offline'));
+  }, 5000);
+}
+
 function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
 
 // ── Tabs ──────────────────────────────────────────────────────────────────────
@@ -1640,9 +1730,6 @@ function getAdminOrders() {
 }
 
 // ── Init ──────────────────────────────────────────────────────────────────────
-// Pre-mark existing orders as already notified so we don't spam on reload
-orders.forEach(o => shownNewToast.add(o.id));
-
 applyShakeSettings();
 renderGrids();
 renderTogoList();
@@ -1666,7 +1753,16 @@ document.getElementById('admin-month-input').value  = todayStr().slice(0,7);
 
 // Init pin
 updatePinBar();
-if (pinnedTab) switchTab(pinnedTab);
+
+// Load data from Firebase, then start polling
+loadFromFirebase(() => {
+  orders.forEach(o => shownNewToast.add(o.id)); // don't notify for existing orders
+  updateBadge();
+  if (document.getElementById('counter-view').classList.contains('active')) renderCounter();
+  if (pinnedTab) switchTab(pinnedTab);
+});
+loadSettingsFromFirebase();
+startFirebasePolling();
 </script>
 
 </body>
