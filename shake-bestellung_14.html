@@ -1,0 +1,1769 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shake Bestellungen – BASE FIVE</title>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Playfair+Display:ital,wght@1,700&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Inter', system-ui, sans-serif; background: #f3f4f6; min-height: 100vh; color: #111; }
+
+    /* ── Tab Bar ── */
+    #tab-bar {
+      position: sticky; top: 0; z-index: 100; background: #fff;
+      border-bottom: 1.5px solid #e5e7eb;
+      display: flex; align-items: stretch;
+    }
+    .tab-btn { flex: 1; padding: 14px 0; background: none; border: none; border-bottom: 3px solid transparent; font-family: inherit; font-size: 14px; font-weight: 500; color: #9ca3af; cursor: pointer; transition: all .15s; }
+    .tab-btn.active { border-bottom-color: #111; color: #111; font-weight: 700; }
+    .badge { display: inline-flex; align-items: center; justify-content: center; background: #ef4444; color: #fff; border-radius: 10px; font-size: 11px; font-weight: 700; min-width: 18px; height: 18px; padding: 0 5px; margin-left: 6px; vertical-align: middle; }
+    /* ── Page Header ── */
+    .page-header {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 20px;
+    }
+
+    /* ── Views ── */
+    .view { display: none; max-width: 540px; margin: 0 auto; padding: 24px 16px 60px; }
+    .view.active { display: block; }
+    #counter-view { max-width: 780px; }
+    .view-title { font-size: 24px; font-weight: 900; margin-bottom: 2px; letter-spacing: -.3px; }
+    .view-sub { font-size: 14px; color: #6b7280; margin-bottom: 0; }
+
+    /* ── Cards ── */
+    .card { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 16px; padding: 18px; margin-bottom: 16px; }
+    .field-label { display: block; font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; margin-bottom: 6px; }
+
+    /* ── Inputs ── */
+    input[type="text"], select {
+      width: 100%; padding: 10px 12px; border: 1.5px solid #d1d5db; border-radius: 10px;
+      font-size: 14px; font-family: inherit; color: #111; background: #f9fafb;
+      outline: none; transition: border-color .15s; appearance: none;
+    }
+    input[type="text"]:focus, select:focus { border-color: #111; background: #fff; }
+    .select-wrap { position: relative; }
+    .select-wrap::after { content: '▾'; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: #6b7280; pointer-events: none; font-size: 13px; }
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    /* ── Grid Section ── */
+    .grid-section { margin-bottom: 16px; }
+    .grid-section-title {
+      font-size: 20px; font-weight: 900; letter-spacing: -.2px;
+      color: #111; margin-bottom: 14px; text-transform: uppercase;
+    }
+
+    .grid-mode-header {
+      display: flex; align-items: center; gap: 10px;
+      margin: 18px 0 8px;
+      background: #111; border-radius: 10px; padding: 9px 14px;
+    }
+    .grid-mode-header .mode-label {
+      font-size: 13px; font-weight: 900; color: #fff;
+      text-transform: uppercase; letter-spacing: .12em;
+    }
+    .grid-mode-header .mode-line { display: none; }
+    .grid-mode-header .mode-icon { font-size: 15px; }
+    .grid-mode-header.togo-header { background: #1d4ed8; }
+
+    .grid-col-headers { display: grid; grid-template-columns: 2fr repeat(3, 1fr); margin-bottom: 2px; }
+    .grid-col-header { font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; text-align: center; padding: 2px 0; }
+    .grid-col-header:first-child { text-align: left; padding-left: 10px; }
+
+    .order-grid { display: grid; grid-template-columns: 2fr repeat(3, 1fr); gap: 1px; border: 1.5px solid #e5e7eb; border-radius: 14px; overflow: hidden; background: #e5e7eb; margin-bottom: 4px; }
+
+    .grid-cell {
+      background: #fff; display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      padding: 10px 4px; cursor: pointer; user-select: none;
+      transition: background .1s; min-height: 64px; position: relative;
+    }
+    .grid-cell:active { transform: scale(.94); }
+    .grid-cell:hover { background: #f9fafb; }
+    .grid-cell.has-count { background: #f0fdf4; }
+    .grid-cell.togo.has-count { background: #eff6ff; }
+    .grid-cell.erase-mode:hover { background: #fff1f2; }
+    .grid-cell.erase-mode.has-count:hover { background: #fee2e2; }
+
+    .grid-cell.row-label { cursor: default; background: #f9fafb; align-items: flex-start; padding: 10px 10px; }
+    .grid-cell.row-label:hover { background: #f9fafb; }
+    .row-label-inner { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+    .row-label-shake { font-size: 13px; font-weight: 800; }
+    .row-label-shake.choco {
+      font-family: 'Playfair Display', Georgia, serif;
+      font-style: italic;
+      font-size: 14px;
+      color: #3d1f0a;
+    }
+
+    .cell-count { font-size: 26px; font-weight: 800; line-height: 1; color: #111; }
+    .cell-count.zero { color: #d1d5db; font-size: 18px; }
+
+    /* ── Eraser bar ── */
+    .eraser-bar { display: flex; align-items: center; gap: 10px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 10px 14px; margin: 8px 0 16px; }
+    .eraser-btn { display: flex; align-items: center; gap: 7px; padding: 8px 16px; border-radius: 10px; border: 2px solid #e5e7eb; background: #f9fafb; font-family: inherit; font-size: 13px; font-weight: 700; color: #6b7280; cursor: pointer; transition: all .15s; user-select: none; }
+    .eraser-btn.active { background: #fef3c7; border-color: #f59e0b; color: #92400e; }
+    .eraser-hint { font-size: 12px; color: #9ca3af; }
+
+    /* ── Extras ── */
+    .extras-card { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 14px; padding: 16px; margin-bottom: 20px; }
+    .extras-title { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 12px; }
+    .extra-row { display: flex; align-items: center; justify-content: space-between; padding: 8px 0; border-bottom: 1px solid #f3f4f6; }
+    .extra-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .extra-info .ename { font-size: 14px; font-weight: 600; color: #111; }
+    .extra-info .esub { font-size: 11px; color: #9ca3af; }
+    .extra-counter { display: flex; align-items: center; gap: 10px; }
+    .extra-count-btn { width: 30px; height: 30px; border-radius: 8px; border: 1.5px solid #e5e7eb; background: #f9fafb; font-family: inherit; font-size: 18px; font-weight: 700; color: #374151; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: all .15s; }
+    .extra-count-btn.plus:hover { background: #d1fae5; border-color: #059669; color: #065f46; }
+    .extra-count-btn.minus:hover { background: #fee2e2; border-color: #dc2626; color: #991b1b; }
+    .extra-count-num { font-size: 18px; font-weight: 800; min-width: 24px; text-align: center; color: #111; }
+    .extra-count-num.zero { color: #d1d5db; }
+
+    /* ── Summary ── */
+    .order-summary { background: #f0fdf4; border: 1.5px solid #bbf7d0; border-radius: 12px; padding: 12px 14px; margin-bottom: 16px; font-size: 13px; color: #166534; font-weight: 600; display: none; line-height: 1.7; }
+    .order-summary.show { display: block; }
+
+    /* ── Error / Submit ── */
+    .error-msg { background: #fee2e2; color: #991b1b; border-radius: 10px; padding: 10px 14px; font-size: 13px; font-weight: 500; margin-bottom: 16px; display: none; }
+    .error-msg.show { display: block; }
+    .submit-btn { width: 100%; background: #111; color: #fff; border: none; border-radius: 12px; padding: 16px; font-size: 16px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s; }
+    .submit-btn:hover { opacity: .87; }
+
+    /* ── Success ── */
+    #success-screen { display: none; text-align: center; padding: 60px 20px; }
+    .success-icon { width: 72px; height: 72px; border-radius: 50%; background: #d1fae5; display: flex; align-items: center; justify-content: center; font-size: 32px; margin: 0 auto 20px; }
+    .success-title { font-size: 22px; font-weight: 700; margin-bottom: 8px; }
+    .success-sub { color: #6b7280; margin-bottom: 8px; }
+    .success-detail { font-size: 13px; color: #9ca3af; margin-bottom: 32px; }
+    .new-order-btn { background: #111; color: #fff; border: none; border-radius: 10px; padding: 12px 32px; font-size: 15px; font-weight: 600; cursor: pointer; font-family: inherit; }
+
+    /* ── Counter Cards ── */
+    .order-card { background: #fff; border: 2px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 14px; transition: border-color .3s; }
+    .order-card.urgent { border-color: #fca5a5; background: #fff8f8; }
+    .order-card.done { border-color: #d1fae5; }
+
+    .order-card-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 10px; gap: 12px; }
+    .order-course-name { font-size: 19px; font-weight: 900; letter-spacing: -.2px; }
+
+    /* Big time display for counter */
+    .order-time-block {
+      display: flex; align-items: center; gap: 10px;
+      background: #f3f4f6; border-radius: 12px;
+      padding: 10px 14px; margin-bottom: 12px;
+    }
+    .order-time-main {
+      font-size: 26px; font-weight: 900; letter-spacing: -.5px; color: #111; line-height: 1;
+    }
+    .order-time-sep { font-size: 20px; font-weight: 300; color: #9ca3af; margin: 0 2px; }
+    .order-time-block.urgent-time { background: #fee2e2; }
+    .order-time-block.urgent-time .order-time-main { color: #991b1b; }
+    .order-time-block.done-time { background: #d1fae5; }
+    .order-time-block.done-time .order-time-main { color: #065f46; }
+
+    .order-coach { font-size: 12px; color: #9ca3af; margin-bottom: 10px; }
+    .countdown-badge { white-space: nowrap; padding: 5px 12px; border-radius: 20px; font-size: 13px; font-weight: 800; background: #fef9c3; color: #854d0e; flex-shrink: 0; }
+    .countdown-badge.urgent { background: #fee2e2; color: #991b1b; }
+    .countdown-badge.done-badge { background: #d1fae5; color: #065f46; }
+
+    .order-items { display: flex; flex-wrap: wrap; gap: 8px; }
+    .shake-tag { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 10px; font-size: 13px; font-weight: 700; }
+    .shake-tag .tag-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+    .shake-tag.red { background: #fee2e2; border: 1.5px solid #dc2626; color: #991b1b; }
+    .shake-tag.red .tag-dot { background: #ef4444; }
+    .shake-tag.aftereight { background: #d1fae5; border: 1.5px solid #059669; color: #065f46; }
+    .shake-tag.aftereight .tag-dot { background: #10b981; }
+    .shake-tag.green { background: #dcfce7; border: 1.5px solid #16a34a; color: #14532d; }
+    .shake-tag.green .tag-dot { background: #22c55e; }
+    .togo-label { font-size: 11px; font-weight: 600; background: #dbeafe; color: #1d4ed8; border-radius: 5px; padding: 2px 5px; }
+    .count-label { font-size: 12px; font-weight: 800; background: #111; color: #fff; border-radius: 6px; padding: 2px 7px; }
+    .porridge-tag { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px; border-radius: 10px; font-size: 13px; font-weight: 700; background: #fef3c7; border: 1.5px solid #d97706; color: #92400e; }
+    .confirm-btn { margin-top: 14px; width: 100%; background: #111; color: #fff; border: none; border-radius: 10px; padding: 12px; font-size: 14px; font-weight: 700; cursor: pointer; font-family: inherit; transition: opacity .15s; }
+    .confirm-btn:hover { opacity: .87; }
+    .section-group-label { font-size: 12px; font-weight: 700; color: #9ca3af; text-transform: uppercase; letter-spacing: .08em; margin: 0 0 12px; }
+    .section-group { margin-bottom: 32px; }
+    .empty-state { text-align: center; padding: 60px 20px; color: #9ca3af; }
+    #clock { font-size: 13px; color: #9ca3af; }
+
+    .add-togo-btn { background: #111; color: #fff; border: none; border-radius: 9px; padding: 9px 18px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; width: 100%; transition: opacity .15s; }
+    .add-togo-btn:hover { opacity: .85; }
+
+    .togo-item-row { display: flex; align-items: center; gap: 10px; background: #fff; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
+    .togo-item-customer { font-weight: 700; font-size: 14px; flex: 1; }
+    .togo-item-shake { font-size: 13px; font-weight: 600; }
+    .togo-item-size { font-size: 12px; background: #111; color: #fff; border-radius: 6px; padding: 2px 8px; font-weight: 800; }
+    .togo-item-delete { background: none; border: none; color: #9ca3af; font-size: 18px; cursor: pointer; padding: 0 4px; line-height: 1; flex-shrink: 0; }
+    .togo-item-delete:hover { color: #ef4444; }
+    .togo-empty { font-size: 13px; color: #9ca3af; text-align: center; padding: 10px 0; }
+
+    /* ── Notes ── */
+    .note-btn {
+      background: none; border: 1.5px solid #e5e7eb; border-radius: 7px;
+      padding: 3px 7px; font-size: 12px; cursor: pointer; color: #9ca3af;
+      transition: all .15s; line-height: 1; flex-shrink: 0;
+    }
+    .note-btn:hover { border-color: #6b7280; color: #374151; }
+    .note-btn.has-note { border-color: #f59e0b; color: #d97706; background: #fef3c7; }
+    .note-field-wrap { padding: 6px 8px 4px; background: #fffbeb; border-top: 1px solid #fde68a; display: none; }
+    .note-field-wrap.open { display: block; }
+    .note-field-wrap textarea {
+      width: 100%; border: 1.5px solid #fde68a; border-radius: 7px; padding: 6px 8px;
+      font-family: inherit; font-size: 12px; color: #111; background: #fff;
+      outline: none; resize: none; min-height: 44px; line-height: 1.5;
+    }
+    .note-field-wrap textarea:focus { border-color: #f59e0b; }
+    .note-placeholder { font-size: 11px; color: #9ca3af; margin-bottom: 4px; }
+
+    .general-notes-card { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 14px; padding: 14px 16px; margin-bottom: 16px; }
+    .general-notes-card label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .06em; display: block; margin-bottom: 6px; }
+    .general-notes-card textarea {
+      width: 100%; border: 1.5px solid #d1d5db; border-radius: 10px; padding: 9px 12px;
+      font-family: inherit; font-size: 14px; color: #111; background: #f9fafb;
+      outline: none; resize: none; min-height: 56px; line-height: 1.5;
+    }
+    .general-notes-card textarea:focus { border-color: #111; background: #fff; }
+
+    /* note chip on counter card */
+    .note-chip {
+      display: inline-flex; align-items: flex-start; gap: 5px;
+      background: #fffbeb; border: 1px solid #fde68a; border-radius: 8px;
+      padding: 4px 9px; font-size: 12px; color: #92400e; font-style: italic;
+      margin-top: 6px; width: 100%; flex-wrap: wrap;
+    }
+    .note-chip-icon { flex-shrink: 0; }
+
+    /* ── Sound toggle ── */
+    .sound-toggle-row { display: flex; align-items: center; gap: 10px; padding: 8px 0; }
+    .sound-toggle-row .toggle-label { font-size: 13px; color: #374151; font-weight: 500; }
+
+    /* ── Admin ── */
+    #admin-view { max-width: 820px; }
+
+    .admin-section { background: #fff; border: 1.5px solid #e5e7eb; border-radius: 16px; padding: 20px; margin-bottom: 20px; }
+    .admin-section-title { font-size: 16px; font-weight: 800; color: #111; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .admin-section-title span { font-size: 18px; }
+
+    /* Shake editor rows */
+    .shake-editor-row { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-bottom: 1px solid #f3f4f6; }
+    .shake-editor-row:last-child { border-bottom: none; padding-bottom: 0; }
+    .shake-preview-dot { width: 20px; height: 20px; border-radius: 50%; border: 2px solid rgba(0,0,0,.1); flex-shrink: 0; transition: background .2s; }
+    .shake-name-input { flex: 1; padding: 8px 10px; border: 1.5px solid #d1d5db; border-radius: 8px; font-family: inherit; font-size: 14px; font-weight: 700; color: #111; background: #f9fafb; outline: none; }
+    .shake-name-input:focus { border-color: #111; background: #fff; }
+    .color-group { display: flex; align-items: center; gap: 8px; }
+    .color-group label { font-size: 11px; font-weight: 700; color: #6b7280; text-transform: uppercase; letter-spacing: .05em; }
+    input[type="color"] { width: 36px; height: 36px; border: none; border-radius: 8px; cursor: pointer; padding: 2px; background: #f9fafb; border: 1.5px solid #e5e7eb; }
+    .admin-save-btn { background: #111; color: #fff; border: none; border-radius: 10px; padding: 10px 22px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: opacity .15s; margin-top: 14px; }
+    .admin-save-btn:hover { opacity: .85; }
+    .admin-save-ok { font-size: 12px; color: #059669; font-weight: 600; margin-top: 8px; display: none; }
+
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 12px; margin-bottom: 20px; }
+    .stat-card { background: #f9fafb; border: 1.5px solid #e5e7eb; border-radius: 12px; padding: 14px 16px; }
+    .stat-num { font-size: 28px; font-weight: 900; color: #111; line-height: 1; }
+    .stat-label { font-size: 12px; color: #6b7280; font-weight: 600; margin-top: 4px; }
+
+    /* Chart canvas wrapper */
+    .chart-wrap { position: relative; width: 100%; overflow-x: auto; }
+    canvas.chart { display: block; }
+
+    /* History table */
+    .history-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .history-table th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #6b7280; padding: 6px 10px; text-align: left; border-bottom: 2px solid #e5e7eb; }
+    .history-table td { padding: 9px 10px; border-bottom: 1px solid #f3f4f6; vertical-align: top; }
+    .history-table tr:last-child td { border-bottom: none; }
+    .history-table tr:hover td { background: #f9fafb; }
+    .ht-course { font-weight: 700; }
+    .ht-time { color: #6b7280; font-size: 12px; }
+    .ht-items { display: flex; flex-wrap: wrap; gap: 4px; }
+    .mini-tag { display: inline-flex; align-items: center; gap: 3px; padding: 2px 7px; border-radius: 6px; font-size: 11px; font-weight: 700; }
+    .mini-tag.red    { background: #fee2e2; color: #991b1b; }
+    .mini-tag.aftereight { background: #d1fae5; color: #065f46; }
+    .mini-tag.green  { background: #dcfce7; color: #14532d; }
+    .mini-tag.porridge { background: #fef3c7; color: #92400e; }
+
+    .clear-data-btn { background: #fff; color: #ef4444; border: 1.5px solid #fca5a5; border-radius: 10px; padding: 9px 18px; font-family: inherit; font-size: 13px; font-weight: 700; cursor: pointer; transition: all .15s; }
+    .clear-data-btn:hover { background: #fee2e2; border-color: #ef4444; }
+
+    /* ── Date picker strip ── */
+    .date-strip { display: flex; align-items: center; gap: 8px; margin-bottom: 16px; flex-wrap: wrap; }
+    .date-strip-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid #e5e7eb; background: #fff; font-family: inherit; font-size: 13px; font-weight: 600; color: #6b7280; cursor: pointer; transition: all .15s; }
+    .date-strip-btn.active { background: #111; border-color: #111; color: #fff; }
+    .date-strip-btn:hover:not(.active) { border-color: #9ca3af; color: #374151; }
+    input[type="date"] { padding: 6px 10px; border: 1.5px solid #d1d5db; border-radius: 10px; font-family: inherit; font-size: 13px; color: #111; background: #f9fafb; outline: none; cursor: pointer; }
+    input[type="date"]:focus { border-color: #111; }
+
+    /* ── Archive section ── */
+    .archive-section { margin-top: 24px; }
+    .archive-toggle { display: flex; align-items: center; gap: 8px; cursor: pointer; padding: 10px 0; border-top: 1.5px solid #e5e7eb; user-select: none; }
+    .archive-toggle-label { font-size: 13px; font-weight: 700; color: #6b7280; }
+    .archive-chevron { font-size: 11px; color: #9ca3af; transition: transform .2s; }
+    .archive-chevron.open { transform: rotate(180deg); }
+    .archive-body { display: none; }
+    .archive-body.open { display: block; }
+
+    /* ── Large clock ── */
+    #clock { font-size: 24px; font-weight: 900; color: #111; letter-spacing: -.5px; line-height: 1; }
+
+    /* ── Pin dropdown ── */
+    .pin-dropdown-wrap { position: relative; display: flex; align-items: center; padding: 0 10px; flex-shrink: 0; }
+    .pin-icon-btn {
+      width: 36px; height: 36px; border-radius: 10px; border: 1.5px solid #e5e7eb;
+      background: #f9fafb; display: flex; align-items: center; justify-content: center;
+      cursor: pointer; font-size: 18px; transition: all .15s; position: relative;
+    }
+    .pin-icon-btn:hover { background: #f3f4f6; border-color: #9ca3af; }
+    .pin-icon-btn.is-pinned { background: #111; border-color: #111; }
+    .pin-icon-btn.is-pinned svg { color: #fff; }
+    .pin-dot { position: absolute; top: 3px; right: 3px; width: 7px; height: 7px; border-radius: 50%; background: #22c55e; border: 1.5px solid #fff; display: none; }
+    .pin-icon-btn.is-pinned .pin-dot { display: block; }
+
+    .pin-dropdown {
+      position: absolute; top: calc(100% + 8px); right: 0;
+      background: #fff; border: 1.5px solid #e5e7eb; border-radius: 14px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.12); min-width: 180px; z-index: 300;
+      padding: 8px; display: none;
+    }
+    .pin-dropdown.open { display: block; }
+    .pin-dropdown-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #9ca3af; padding: 4px 8px 6px; }
+    .pin-option {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 10px; border-radius: 9px; cursor: pointer;
+      font-size: 13px; font-weight: 600; color: #374151;
+      transition: background .12s; border: none; background: none;
+      font-family: inherit; width: 100%; text-align: left;
+    }
+    .pin-option:hover { background: #f3f4f6; }
+    .pin-option.active { background: #111; color: #fff; }
+    .pin-option .pin-opt-icon { font-size: 15px; flex-shrink: 0; }
+    .pin-divider { height: 1px; background: #f3f4f6; margin: 4px 0; }
+    .pin-unpin-opt {
+      display: flex; align-items: center; gap: 9px;
+      padding: 9px 10px; border-radius: 9px; cursor: pointer;
+      font-size: 13px; font-weight: 600; color: #ef4444;
+      border: none; background: none; font-family: inherit; width: 100%; text-align: left;
+      transition: background .12s;
+    }
+    .pin-unpin-opt:hover { background: #fee2e2; }
+
+    /* Admin date controls */
+    .admin-date-controls { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .admin-view-btn { padding: 6px 14px; border-radius: 20px; border: 1.5px solid #e5e7eb; background: #fff; font-family: inherit; font-size: 12px; font-weight: 600; color: #6b7280; cursor: pointer; transition: all .15s; }
+    .admin-view-btn.active { background: #111; border-color: #111; color: #fff; }
+
+    /* ── Toast notification ── */
+    #toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(80px);
+      background: #111; color: #fff; padding: 12px 22px; border-radius: 14px;
+      font-size: 14px; font-weight: 600; z-index: 9999;
+      transition: transform .35s cubic-bezier(.34,1.56,.64,1), opacity .3s;
+      opacity: 0; pointer-events: none; white-space: nowrap; max-width: 90vw;
+      box-shadow: 0 8px 24px rgba(0,0,0,.25);
+    }
+    #toast.urgent-toast { background: #dc2626; }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+  </style>
+  <style id="dynamic-shake-css"></style>
+</head>
+<body>
+
+<!-- Toast -->
+<div id="toast"></div>
+
+<!-- Tab Bar -->
+<div id="tab-bar">
+  <button class="tab-btn active" id="tab-coach" onclick="switchTab('coach')">Coach</button>
+  <button class="tab-btn" id="tab-counter" onclick="switchTab('counter')">Theke <span id="badge" class="badge" style="display:none">0</span></button>
+  <button class="tab-btn" id="tab-admin" onclick="switchTab('admin')">Admin</button>
+  <span id="conn-status" style="display:flex;align-items:center;padding:0 8px;font-size:14px;cursor:default;" title="Verbinde…">⏳</span>
+  <!-- Pin dropdown -->
+  <div class="pin-dropdown-wrap">
+    <button class="pin-icon-btn" id="pin-icon-btn" onclick="togglePinDropdown()" title="Ansicht fixieren">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+      <span class="pin-dot"></span>
+    </button>
+    <div class="pin-dropdown" id="pin-dropdown">
+      <div class="pin-dropdown-title">Ansicht fixieren</div>
+      <button class="pin-option" id="pin-opt-coach"   onclick="pinTab('coach')">  <span class="pin-opt-icon">🏋️</span> Coach</button>
+      <button class="pin-option" id="pin-opt-counter" onclick="pinTab('counter')"><span class="pin-opt-icon">☕</span> Theke</button>
+      <button class="pin-option" id="pin-opt-admin"   onclick="pinTab('admin')">  <span class="pin-opt-icon">⚙️</span> Admin</button>
+      <div class="pin-divider"></div>
+      <button class="pin-unpin-opt" id="pin-unpin-opt" onclick="pinTab(null)" style="display:none">✕ &nbsp;Fixierung lösen</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ COACH VIEW ══ -->
+<div id="coach-view" class="view active">
+  <div id="order-form">
+    <div class="page-header">
+      <div>
+        <div class="view-title">Shake Bestellungen</div>
+        <p class="view-sub">Bestellung für deinen Kurs aufgeben</p>
+      </div>
+</div>
+
+    <!-- Course Info -->
+    <div class="card">
+      <div class="two-col" style="margin-bottom:12px">
+        <div>
+          <label class="field-label">Kurs</label>
+          <div class="select-wrap">
+            <select id="course-name">
+              <option value="">– Kurs wählen –</option>
+              <option>Group A</option>
+              <option>Group B</option>
+              <option>(P)Rehab Core</option>
+              <option>(P)Rehab Upper Body</option>
+              <option>(P)Rehab Lower Body</option>
+              <option>BuildTheBase</option>
+              <option>MovementExp</option>
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="field-label">Coach</label>
+          <input type="text" id="coach-name" placeholder="Dein Name" />
+        </div>
+      </div>
+      <label class="field-label">Kursstart</label>
+      <div class="select-wrap">
+        <select id="course-time">
+          <option value="">– Uhrzeit wählen –</option>
+        </select>
+      </div>
+    </div>
+
+    <!-- Shakes Grid -->
+    <div class="grid-section">
+      <div class="grid-section-title">Shakes</div>
+
+      <div class="grid-col-headers">
+        <div class="grid-col-header"></div>
+        <div class="grid-col-header">S</div>
+        <div class="grid-col-header">M</div>
+        <div class="grid-col-header">L</div>
+      </div>
+
+      <div class="grid-mode-header">
+        <div class="mode-label">Normal</div>
+      </div>
+      <div class="order-grid" id="grid-normal"></div>
+
+    </div>
+
+    <!-- Eraser (before togo) -->
+    <div class="eraser-bar">
+      <button class="eraser-btn" id="eraser-btn" onclick="toggleEraser()">
+        <span>🧹</span> Radierer
+      </button>
+      <span class="eraser-hint" id="eraser-hint">Einschalten → Feld antippen = −1</span>
+    </div>
+
+    <!-- To-go individual orders -->
+    <div class="grid-section">
+      <div class="grid-mode-header togo-header">
+        <div class="mode-label">To-go</div>
+        <div class="mode-icon">☕</div>
+      </div>
+
+      <div class="card" style="margin-bottom:10px;padding:14px;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px;margin-bottom:10px;">
+          <div>
+            <label class="field-label">Kunde</label>
+            <input type="text" id="togo-customer" placeholder="Name" />
+          </div>
+          <div>
+            <label class="field-label">Shake</label>
+            <div class="select-wrap">
+              <select id="togo-shake">
+                <option value="">– wählen –</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="field-label">Größe</label>
+            <div class="select-wrap">
+              <select id="togo-size">
+                <option value="">– wählen –</option>
+                <option>S</option>
+                <option>M</option>
+                <option>L</option>
+              </select>
+            </div>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+          <button class="note-btn" id="togo-note-btn" onclick="toggleTogoNote()" style="flex:1;justify-content:center;padding:8px;">📝 Sonderwunsch</button>
+        </div>
+        <div id="togo-note-wrap" style="display:none;margin-bottom:10px;">
+          <input type="text" id="togo-note" placeholder="z.B. vegan, mehr Zitrone, kein Eis …" />
+        </div>
+        <button class="add-togo-btn" onclick="addTogoItem()">+ To-go hinzufügen</button>
+      </div>
+
+      <!-- To-go list -->
+      <div id="togo-list"></div>
+    </div>
+
+    <!-- Extras -->
+    <div class="extras-card">
+      <div class="extras-title">Extras</div>
+      <div class="extra-row">
+        <div class="extra-info">
+          <div class="ename">🥣 Porridge</div>
+          <div class="esub">Optional</div>
+        </div>
+        <div class="extra-counter">
+          <button class="extra-count-btn minus" onclick="changeExtra('porridge',-1)">−</button>
+          <span class="extra-count-num zero" id="extra-porridge">0</span>
+          <button class="extra-count-btn plus" onclick="changeExtra('porridge',+1)">+</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- General Notes -->
+    <div class="general-notes-card">
+      <label>📋 Sonstige Anmerkungen <span style="font-weight:400;text-transform:none;font-size:10px;color:#9ca3af;">(optional – gilt für die gesamte Bestellung)</span></label>
+      <textarea id="general-notes" placeholder="z.B. bitte alles zusammen zubereiten, Gruppe hat Allergiker …" rows="2"></textarea>
+    </div>
+
+    <div class="order-summary" id="order-summary"></div>
+    <div class="error-msg" id="error-msg"></div>
+    <button class="submit-btn" onclick="submitOrder()">Bestellung absenden →</button>
+  </div>
+
+  <div id="success-screen">
+    <div class="success-icon">✓</div>
+    <div class="success-title">Bestellung abgeschickt!</div>
+    <p class="success-sub">Die Theke wurde benachrichtigt.</p>
+    <p class="success-detail" id="success-detail"></p>
+    <button class="new-order-btn" onclick="resetForm()">Neue Bestellung</button>
+  </div>
+</div>
+
+<!-- ══ COUNTER VIEW ══ -->
+<div id="counter-view" class="view">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px;">
+    <div class="view-title">Shake Bestellungen</div>
+    <div style="display:flex;align-items:center;gap:14px;">
+      <div class="sound-toggle-row">
+        <div class="toggle-track" id="sound-track" onclick="toggleSound()" style="cursor:pointer;"><div class="toggle-thumb"></div></div>
+        <span class="toggle-label" style="font-size:12px;">🔔 Ton</span>
+      </div>
+      <span id="clock"></span>
+    </div>
+  </div>
+
+  <!-- Date strip -->
+  <div class="date-strip" id="counter-date-strip">
+    <button class="date-strip-btn active" onclick="setCounterDate('today')">Heute</button>
+    <button class="date-strip-btn" onclick="setCounterDate('yesterday')">Gestern</button>
+    <input type="date" id="counter-date-input" onchange="setCounterDate('custom')" />
+  </div>
+  <p class="view-sub" id="counter-sub" style="margin-bottom:16px">Keine offenen Bestellungen</p>
+
+  <div id="orders-container"></div>
+
+  <!-- Archive -->
+  <div class="archive-section">
+    <div class="archive-toggle" onclick="toggleArchive()">
+      <span class="archive-toggle-label">📦 Archiv (älter als 4h)</span>
+      <span class="archive-chevron" id="archive-chevron">▼</span>
+    </div>
+    <div class="archive-body" id="archive-body"></div>
+  </div>
+</div>
+
+<!-- ══ ADMIN VIEW ══ -->
+<div id="admin-view" class="view">
+
+  <!-- ── Lock screen ── -->
+  <div id="admin-lock" style="max-width:320px;margin:60px auto 0;text-align:center;">
+    <div style="font-size:40px;margin-bottom:16px;">🔒</div>
+    <div style="font-size:20px;font-weight:800;margin-bottom:6px;">Admin-Bereich</div>
+    <p style="font-size:14px;color:#6b7280;margin-bottom:24px;">Bitte Passwort eingeben</p>
+    <div style="position:relative;margin-bottom:12px;">
+      <input type="password" id="admin-pw-input" placeholder="Passwort"
+        style="width:100%;padding:12px 44px 12px 14px;border:1.5px solid #d1d5db;border-radius:12px;font-family:inherit;font-size:15px;outline:none;background:#f9fafb;transition:border-color .15s;"
+        onkeydown="if(event.key==='Enter')checkAdminPw()"
+        onfocus="this.style.borderColor='#111';this.style.background='#fff'"
+        onblur="this.style.borderColor='#d1d5db';this.style.background='#f9fafb'" />
+      <button onclick="togglePwVisibility()" id="pw-eye"
+        style="position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;cursor:pointer;font-size:16px;color:#9ca3af;padding:2px;">👁</button>
+    </div>
+    <div id="admin-pw-error" style="display:none;font-size:13px;color:#ef4444;font-weight:600;margin-bottom:10px;">Falsches Passwort</div>
+    <button onclick="checkAdminPw()"
+      style="width:100%;background:#111;color:#fff;border:none;border-radius:12px;padding:13px;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;">
+      Einloggen
+    </button>
+  </div>
+
+  <!-- ── Admin content (hidden until unlocked) ── -->
+  <div id="admin-content" style="display:none;">
+    <div class="page-header">
+      <div>
+        <div class="view-title">Admin</div>
+        <p class="view-sub">Shake-Einstellungen &amp; Bestellstatistik</p>
+      </div>
+      <button onclick="lockAdmin()" style="background:none;border:1.5px solid #e5e7eb;border-radius:10px;padding:7px 14px;font-family:inherit;font-size:12px;font-weight:700;color:#6b7280;cursor:pointer;">🔒 Sperren</button>
+    </div>
+
+  <!-- ── Shake Editor ── -->
+  <div class="admin-section">
+    <div class="admin-section-title"><span>🎨</span> Shake Namen &amp; Farben</div>
+    <div id="shake-editor"></div>
+    <button class="admin-save-btn" onclick="saveShakeSettings()">Einstellungen speichern</button>
+    <div class="admin-save-ok" id="admin-save-ok">✓ Gespeichert!</div>
+  </div>
+
+  <!-- ── Stats KPIs ── -->
+  <div class="admin-section">
+    <div class="admin-section-title"><span>📊</span> Übersicht</div>
+    <div class="stats-grid" id="stats-kpi"></div>
+
+    <!-- Shake popularity bar chart -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;">Shakes nach Sorte</div>
+      <div class="chart-wrap"><canvas class="chart" id="chart-shakes" height="160"></canvas></div>
+    </div>
+
+    <!-- Orders by hour bar chart -->
+    <div style="margin-bottom:20px">
+      <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;">Bestellungen nach Uhrzeit</div>
+      <div class="chart-wrap"><canvas class="chart" id="chart-hours" height="140"></canvas></div>
+    </div>
+
+    <!-- Size distribution -->
+    <div style="margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700;color:#374151;margin-bottom:10px;">Größenverteilung</div>
+      <div class="chart-wrap"><canvas class="chart" id="chart-sizes" height="120"></canvas></div>
+    </div>
+  </div>
+
+  <!-- ── Order History ── -->
+  <div class="admin-section">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:8px;">
+      <div class="admin-section-title" style="margin-bottom:0"><span>📋</span> Bestellverlauf</div>
+      <button class="clear-data-btn" onclick="clearAllOrders()">🗑 Alle löschen</button>
+    </div>
+    <div class="admin-date-controls">
+      <button class="admin-view-btn active" id="admin-view-all" onclick="setAdminView('all')">Alle</button>
+      <button class="admin-view-btn" id="admin-view-day" onclick="setAdminView('day')">Tag</button>
+      <button class="admin-view-btn" id="admin-view-month" onclick="setAdminView('month')">Monat</button>
+      <input type="date" id="admin-date-input" style="display:none" onchange="renderAdmin()" />
+      <input type="month" id="admin-month-input" style="display:none" onchange="renderAdmin()" />
+    </div>
+    <div id="order-history-table"></div>
+  </div>
+  </div><!-- end admin-content -->
+</div>
+
+<script>
+// ── Shake Settings (Admin-editable) ──────────────────────────────────────────
+const DEFAULT_SHAKE_SETTINGS = [
+  { key:'Red',       name:'Red',       dot:'#ef4444', color:'#dc2626', bg:'#fee2e2', border:'#dc2626', textcol:'#991b1b' },
+  { key:'AfterEight',name:'AfterEight',dot:'#10b981', color:'#065f46', bg:'#d1fae5', border:'#059669', textcol:'#065f46' },
+  { key:'Green',     name:'Green',     dot:'#22c55e', color:'#16a34a', bg:'#dcfce7', border:'#16a34a', textcol:'#14532d' },
+];
+let shakeSettings = JSON.parse(localStorage.getItem('shake-settings') || 'null') || JSON.parse(JSON.stringify(DEFAULT_SHAKE_SETTINGS));
+
+function saveShakeSettings() {
+  // Read from inputs
+  shakeSettings.forEach((s, i) => {
+    s.name   = document.getElementById('sname-'+i).value.trim() || s.name;
+    s.dot    = document.getElementById('scol-dot-'+i).value;
+    s.color  = document.getElementById('scol-main-'+i).value;
+    s.bg     = document.getElementById('scol-bg-'+i).value;
+    s.border = s.color;
+    s.textcol = s.color;
+  });
+  localStorage.setItem('shake-settings', JSON.stringify(shakeSettings));
+  saveShakeSettingsRemote();
+  applyShakeSettings();
+  renderShakeEditor();
+  renderGrids();
+  document.getElementById('admin-save-ok').style.display = 'block';
+  setTimeout(() => document.getElementById('admin-save-ok').style.display='none', 2000);
+}
+
+function applyShakeSettings() {
+  // Rebuild runtime maps
+  shakeSettings.forEach(s => {
+    SHAKE_DOT[s.key]     = s.dot;
+    SHAKE_COLOR[s.key]   = s.color;
+    SHAKE_NAMES[s.key]   = s.name;
+    SHAKE_BG[s.key]      = s.bg;
+    SHAKE_BORDER[s.key]  = s.border;
+    SHAKE_TEXTCOL[s.key] = s.textcol;
+  });
+  // Update dynamic CSS for shake-tags
+  let css = '';
+  shakeSettings.forEach(s => {
+    const cls = s.key.toLowerCase().replace('aftereight','aftereight');
+    css += `.shake-tag.${SHAKE_TAG_CLS[s.key]} { background:${s.bg}!important; border-color:${s.border}!important; color:${s.textcol}!important; }`;
+    css += `.shake-tag.${SHAKE_TAG_CLS[s.key]} .tag-dot { background:${s.dot}!important; }`;
+    css += `.mini-tag.${SHAKE_TAG_CLS[s.key]} { background:${s.bg}!important; color:${s.textcol}!important; }`;
+  });
+  document.getElementById('dynamic-shake-css').textContent = css;
+  buildTogoShakeSelect();
+}
+
+function renderShakeEditor() {
+  const container = document.getElementById('shake-editor');
+  container.innerHTML = shakeSettings.map((s,i) => `
+    <div class="shake-editor-row">
+      <div class="shake-preview-dot" id="dot-preview-${i}" style="background:${s.dot}"></div>
+      <input class="shake-name-input" id="sname-${i}" value="${s.name}" placeholder="Name" />
+      <div class="color-group">
+        <label>Punkt</label>
+        <input type="color" id="scol-dot-${i}" value="${s.dot}" oninput="document.getElementById('dot-preview-${i}').style.background=this.value" />
+      </div>
+      <div class="color-group">
+        <label>Farbe</label>
+        <input type="color" id="scol-main-${i}" value="${s.color}" />
+      </div>
+      <div class="color-group">
+        <label>Hintergrund</label>
+        <input type="color" id="scol-bg-${i}" value="${s.bg}" />
+      </div>
+    </div>
+  `).join('');
+}
+
+// ── Config ────────────────────────────────────────────────────────────────────
+const SHAKES = ['Red','AfterEight','Green'];
+const SIZES  = ['S','M','L'];
+// These get overwritten by applyShakeSettings() on init
+const SHAKE_DOT     = { Red:'#ef4444', AfterEight:'#10b981', Green:'#22c55e' };
+const SHAKE_COLOR   = { Red:'#dc2626', AfterEight:'#065f46', Green:'#16a34a' };
+const SHAKE_NAMES   = { Red:'Red',     AfterEight:'AfterEight', Green:'Green' };
+const SHAKE_BG      = { Red:'#fee2e2', AfterEight:'#d1fae5', Green:'#dcfce7' };
+const SHAKE_BORDER  = { Red:'#dc2626', AfterEight:'#059669', Green:'#16a34a' };
+const SHAKE_TEXTCOL = { Red:'#991b1b', AfterEight:'#065f46', Green:'#14532d' };
+const SHAKE_TAG_CLS = { Red:'red',     AfterEight:'aftereight', Green:'green' };
+
+// Time select: ±1h around now, 15min steps, always 06:00–22:00 window
+(function buildTimeSelect() {
+  const sel = document.getElementById('course-time');
+  const now = new Date();
+  const nowMins = now.getHours() * 60 + now.getMinutes();
+  const windowStart = Math.max(6*60, nowMins - 60);
+  const windowEnd   = Math.min(22*60, nowMins + 60);
+
+  for (let h = 6; h <= 22; h++) {
+    for (let m of [0,15,30,45]) {
+      if (h === 22 && m > 0) break;
+      const totalMins = h*60 + m;
+      if (totalMins < windowStart || totalMins > windowEnd) continue;
+      const val = String(h).padStart(2,'0') + ':' + String(m).padStart(2,'0');
+      const opt = document.createElement('option');
+      opt.value = val;
+      opt.textContent = val;
+      // Pre-select nearest upcoming slot
+      if (!sel.value && totalMins >= nowMins) sel.value = ''; // handled below
+      sel.appendChild(opt);
+    }
+  }
+
+  // Auto-select nearest upcoming 15-min slot
+  const roundedMins = Math.ceil(nowMins / 15) * 15;
+  if (roundedMins <= windowEnd) {
+    const rh = Math.floor(roundedMins / 60);
+    const rm = roundedMins % 60;
+    if (rh <= 22) {
+      const auto = String(rh).padStart(2,'0') + ':' + String(rm).padStart(2,'0');
+      if ([...sel.options].some(o => o.value === auto)) sel.value = auto;
+    }
+  }
+})();
+
+// ── State ─────────────────────────────────────────────────────────────────────
+let orders = [];
+let counts = {};
+let togoItems = [];
+let shakeNotes = {};
+let extras = { porridge: 0 };
+let eraserOn = false;
+let clockInterval = null;
+let pinnedTab = localStorage.getItem('pinned-tab') || null;
+const notifiedNew = new Set();
+const notifiedUrgent = new Set();
+
+function initCounts() {
+  counts = {};
+  SHAKES.forEach(sh => {
+    counts[sh] = {};
+    SIZES.forEach(sz => { counts[sh][sz] = 0; });
+  });
+  shakeNotes = {};
+  extras = { porridge: 0 };
+  togoItems = [];
+}
+initCounts();
+
+// ── Firebase ──────────────────────────────────────────────────────────────────
+const FB_URL = 'https://shakeapp-b680b-default-rtdb.europe-west1.firebasedatabase.app';
+
+function fbFetch(path, method, data) {
+  const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
+  if (data !== undefined) opts.body = JSON.stringify(data);
+  return fetch(FB_URL + path + '.json', opts).then(r => r.json());
+}
+
+function saveOrders() {
+  // Write full orders array to Firebase
+  fbFetch('/orders.json', 'PUT', orders).catch(e => console.error('Firebase write error:', e));
+}
+
+function saveShakeSettingsRemote() {
+  fbFetch('/settings/shakes.json', 'PUT', shakeSettings).catch(e => console.error('Firebase settings write error:', e));
+}
+
+function setConnectionStatus(state) {
+  const el = document.getElementById('conn-status');
+  if (!el) return;
+  if (state === 'online')  { el.textContent = '🟢'; el.title = 'Verbunden'; }
+  if (state === 'offline') { el.textContent = '🔴'; el.title = 'Keine Verbindung'; }
+  if (state === 'loading') { el.textContent = '⏳'; el.title = 'Verbinde…'; }
+}
+
+function loadFromFirebase(callback) {
+  setConnectionStatus('loading');
+  fbFetch('/orders.json', 'GET')
+    .then(data => {
+      orders = Array.isArray(data) ? data : (data ? Object.values(data) : []);
+      // Sort newest first
+      orders.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+      setConnectionStatus('online');
+      if (callback) callback();
+    })
+    .catch(() => {
+      setConnectionStatus('offline');
+      // Fall back to localStorage
+      orders = JSON.parse(localStorage.getItem('shake-orders') || '[]');
+      if (callback) callback();
+    });
+}
+
+function loadSettingsFromFirebase() {
+  fbFetch('/settings/shakes.json', 'GET')
+    .then(data => {
+      if (data && Array.isArray(data)) {
+        shakeSettings = data;
+        localStorage.setItem('shake-settings', JSON.stringify(shakeSettings));
+        applyShakeSettings();
+        renderGrids();
+      }
+    })
+    .catch(() => {/* use localStorage fallback already loaded */});
+}
+
+// Poll Firebase every 5 seconds for real-time updates
+function startFirebasePolling() {
+  setInterval(() => {
+    fbFetch('/orders.json', 'GET')
+      .then(data => {
+        const fresh = Array.isArray(data) ? data : (data ? Object.values(data) : []);
+        fresh.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
+        setConnectionStatus('online');
+
+        // Check for new orders to trigger notifications
+        const currentIds = new Set(orders.map(o => o.id));
+        fresh.forEach(o => {
+          if (!currentIds.has(o.id) && !shownNewToast.has(o.id)) {
+            const isCounterVisible = document.getElementById('counter-view').classList.contains('active');
+            if (isCounterVisible) {
+              showToast('🆕 Neue Bestellung: ' + o.courseName + ' (' + o.coachName + ')', false);
+              playSound('new');
+            }
+            shownNewToast.add(o.id);
+            updateBadge();
+          }
+        });
+
+        orders = fresh;
+        // Re-render only if counter or admin tab is active
+        if (document.getElementById('counter-view').classList.contains('active')) renderCounter();
+        if (document.getElementById('admin-view').classList.contains('active') && adminUnlocked) renderAdmin();
+      })
+      .catch(() => setConnectionStatus('offline'));
+  }, 5000);
+}
+
+function genId() { return Date.now().toString(36) + Math.random().toString(36).slice(2,6); }
+
+// ── Tabs ──────────────────────────────────────────────────────────────────────
+function switchTab(tab) {
+  if (pinnedTab && tab !== pinnedTab) return;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById('tab-'+tab).classList.add('active');
+  document.getElementById(tab+'-view').classList.add('active');
+  if (tab === 'counter') renderCounter();
+  if (tab === 'admin') {
+    if (adminUnlocked) {
+      showAdminContent();
+    } else {
+      document.getElementById('admin-lock').style.display    = 'block';
+      document.getElementById('admin-content').style.display = 'none';
+      setTimeout(() => document.getElementById('admin-pw-input').focus(), 100);
+    }
+  }
+}
+
+function updateBadge() {
+  const n = orders.filter(o => o.status === 'pending').length;
+  const b = document.getElementById('badge');
+  b.textContent = n;
+  b.style.display = n > 0 ? 'inline-flex' : 'none';
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer = null;
+function showToast(msg, urgent) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = 'show' + (urgent ? ' urgent-toast' : '');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = urgent ? 'urgent-toast' : ''; }, 5000);
+}
+
+// ── Grid (Normal only) ────────────────────────────────────────────────────────
+function cellClick(sh, sz) {
+  if (eraserOn) {
+    counts[sh][sz] = Math.max(0, counts[sh][sz] - 1);
+  } else {
+    counts[sh][sz]++;
+  }
+  renderGrids();
+  updateSummary();
+}
+
+function renderGrids() {
+  const el = document.getElementById('grid-normal');
+  if (!el) return;
+
+  let html = '';
+  SHAKES.forEach(sh => {
+    const isChoco = sh === 'AfterEight';
+    const shakeLabel = isChoco
+      ? '<span class="row-label-shake choco">' + SHAKE_NAMES[sh] + '</span>'
+      : '<span class="row-label-shake" style="color:' + SHAKE_COLOR[sh] + '">' + SHAKE_NAMES[sh] + '</span>';
+    html += '<div class="grid-cell row-label"><div class="row-label-inner"><span class="dot" style="background:' + SHAKE_DOT[sh] + '"></span>' + shakeLabel + '</div></div>';
+    SIZES.forEach(sz => {
+      const n = counts[sh][sz];
+      const cls = ['grid-cell', n>0?'has-count':'', eraserOn?'erase-mode':''].filter(Boolean).join(' ');
+      html += '<div class="' + cls + '" onclick="cellClick(\'' + sh + '\',\'' + sz + '\')">'
+        + '<span class="cell-count' + (n===0?' zero':'') + '">' + (n===0?'·':n) + '</span>'
+        + '</div>';
+    });
+  });
+  el.innerHTML = html;
+
+  // Single note button + textarea below the grid
+  let nc = document.getElementById('shake-notes-container');
+  if (!nc) {
+    nc = document.createElement('div');
+    nc.id = 'shake-notes-container';
+    nc.style.cssText = 'margin-top:8px;';
+    el.parentNode.insertBefore(nc, el.nextSibling);
+  }
+  const existing = shakeNotes['_normal'] || '';
+  const isOpen = nc.dataset.open === '1';
+  nc.innerHTML = '<button class="note-btn ' + (existing ? 'has-note' : '') + '" id="note-btn-normal" onclick="toggleNormalNote()" style="width:100%;justify-content:center;padding:9px;">'
+    + (existing ? '📝 ' + existing : '📝 Sonderwunsch hinzufügen')
+    + '</button>'
+    + '<div id="note-wrap-normal" style="display:' + (isOpen || existing ? 'block' : 'none') + ';margin-top:6px;">'
+    + '<textarea id="note-normal" rows="2" style="width:100%;padding:9px 12px;border:1.5px solid #fde68a;border-radius:10px;font-family:inherit;font-size:13px;color:#111;background:#fffbeb;outline:none;resize:none;" placeholder="z.B. vegan, mehr Zitrone, kein Eis …" onchange="shakeNotes[\'_normal\']=this.value;updateNormalNoteBtn();" onblur="shakeNotes[\'_normal\']=this.value;updateNormalNoteBtn();">' + existing + '</textarea>'
+    + '</div>';
+}
+
+function updateNormalNoteBtn() {
+  const val = (shakeNotes['_normal']||'').trim();
+  const btn = document.getElementById('note-btn-normal');
+  if (!btn) return;
+  btn.classList.toggle('has-note', val.length > 0);
+  btn.textContent = val ? '📝 ' + val : '📝 Sonderwunsch hinzufügen';
+}
+
+function toggleNormalNote() {
+  const nc = document.getElementById('shake-notes-container');
+  const wrap = document.getElementById('note-wrap-normal');
+  if (!wrap) return;
+  const isOpen = wrap.style.display !== 'none';
+  wrap.style.display = isOpen ? 'none' : 'block';
+  nc.dataset.open = isOpen ? '0' : '1';
+  if (!isOpen) wrap.querySelector('textarea').focus();
+}
+
+// ── To-go individual items ─────────────────────────────────────────────────────
+function toggleTogoNote() {
+  const wrap = document.getElementById('togo-note-wrap');
+  const btn  = document.getElementById('togo-note-btn');
+  if (!wrap) return;
+  const isOpen = wrap.style.display !== 'none';
+  wrap.style.display = isOpen ? 'none' : 'block';
+  if (!isOpen) { wrap.querySelector('input').focus(); btn.classList.add('has-note'); }
+  else { btn.classList.remove('has-note'); }
+}
+
+function buildTogoShakeSelect() {
+  const sel = document.getElementById('togo-shake');
+  if (!sel) return;
+  sel.innerHTML = '<option value="">– wählen –</option>';
+  SHAKES.forEach(sh => {
+    const opt = document.createElement('option');
+    opt.value = sh;
+    opt.textContent = SHAKE_NAMES[sh];
+    sel.appendChild(opt);
+  });
+}
+
+function addTogoItem() {
+  const customer = document.getElementById('togo-customer').value.trim();
+  const shake    = document.getElementById('togo-shake').value;
+  const size     = document.getElementById('togo-size').value;
+  const note     = document.getElementById('togo-note').value.trim();
+  if (!customer) { document.getElementById('togo-customer').focus(); return; }
+  if (!shake)    { document.getElementById('togo-shake').focus(); return; }
+  if (!size)     { document.getElementById('togo-size').focus(); return; }
+  togoItems.push({ id: genId(), customer, shake, size, note });
+  document.getElementById('togo-customer').value = '';
+  document.getElementById('togo-shake').value    = '';
+  document.getElementById('togo-size').value     = '';
+  document.getElementById('togo-note').value     = '';
+  document.getElementById('togo-note-wrap').style.display = 'none';
+  document.getElementById('togo-note-btn').classList.remove('has-note');
+  renderTogoList();
+  updateSummary();
+}
+
+function removeTogoItem(id) {
+  togoItems = togoItems.filter(i => i.id !== id);
+  renderTogoList();
+  updateSummary();
+}
+
+function renderTogoList() {
+  const el = document.getElementById('togo-list');
+  if (!el) return;
+  if (togoItems.length === 0) {
+    el.innerHTML = '<div class="togo-empty">Noch keine To-go Bestellungen</div>';
+    return;
+  }
+  el.innerHTML = togoItems.map(item => {
+    const dotColor = SHAKE_DOT[item.shake] || '#9ca3af';
+    return '<div class="togo-item-row" style="flex-wrap:wrap;">'
+      + '<span class="dot" style="background:' + dotColor + ';width:10px;height:10px;flex-shrink:0"></span>'
+      + '<span class="togo-item-customer">' + item.customer + '</span>'
+      + '<span class="togo-item-shake">' + (SHAKE_NAMES[item.shake]||item.shake) + '</span>'
+      + '<span class="togo-item-size">' + item.size + '</span>'
+      + (item.note ? '<span style="font-size:11px;color:#d97706;font-style:italic;background:#fffbeb;border-radius:6px;padding:1px 7px;">📝 ' + item.note + '</span>' : '')
+      + '<button class="togo-item-delete" onclick="removeTogoItem(\'' + item.id + '\')">×</button>'
+      + '</div>';
+  }).join('');
+}
+
+// ── Eraser ────────────────────────────────────────────────────────────────────
+function toggleEraser() {
+  eraserOn = !eraserOn;
+  document.getElementById('eraser-btn').classList.toggle('active', eraserOn);
+  document.getElementById('eraser-hint').textContent = eraserOn
+    ? '✓ Aktiv – Feld antippen = −1 · Nochmal klicken zum Deaktivieren'
+    : 'Einschalten → Feld antippen = −1';
+  renderGrids();
+}
+
+// ── Extras ────────────────────────────────────────────────────────────────────
+function changeExtra(key, delta) {
+  extras[key] = Math.max(0, (extras[key]||0) + delta);
+  const el = document.getElementById('extra-'+key);
+  el.textContent = extras[key];
+  el.className = 'extra-count-num' + (extras[key]===0?' zero':'');
+  updateSummary();
+}
+
+// ── Summary ───────────────────────────────────────────────────────────────────
+function buildItems() {
+  const items = [];
+  SHAKES.forEach(sh => SIZES.forEach(sz => {
+    const n = counts[sh][sz];
+    if (n > 0) items.push({ shake:sh, size:sz, togo:false, count:n });
+  }));
+  return items;
+}
+function totalItems() {
+  return buildItems().reduce((s,i)=>s+i.count,0) + togoItems.length + (extras.porridge||0);
+}
+
+function updateSummary() {
+  const el = document.getElementById('order-summary');
+  const parts = buildItems().map(i => i.count + '× ' + SHAKE_NAMES[i.shake] + ' ' + i.size);
+  togoItems.forEach(i => parts.push(i.customer + ': ' + (SHAKE_NAMES[i.shake]||i.shake) + ' ' + i.size + ' to-go'));
+  if (extras.porridge > 0) parts.push(extras.porridge + '× Porridge');
+  if (!parts.length) { el.classList.remove('show'); return; }
+  el.innerHTML = parts.join(' &nbsp;·&nbsp; ');
+  el.classList.add('show');
+}
+
+// ── Submit ────────────────────────────────────────────────────────────────────
+function submitOrder() {
+  const name  = document.getElementById('course-name').value;
+  const coach = document.getElementById('coach-name').value.trim();
+  const time  = document.getElementById('course-time').value;
+  const errEl = document.getElementById('error-msg');
+  if (!name)  { showError('Bitte Kurs auswählen.'); return; }
+  if (!coach) { showError('Bitte Coach-Name eingeben.'); return; }
+  if (!time)  { showError('Bitte Kursstart auswählen.'); return; }
+  if (totalItems() === 0) { showError('Bitte mindestens einen Artikel auswählen.'); return; }
+  errEl.classList.remove('show');
+
+  const today = new Date().toISOString().slice(0,10);
+  const startDate = new Date(today + 'T' + time + ':00');
+  const endDate   = new Date(startDate.getTime() + 60*60*1000);
+
+  // Collect normal shake note and general note
+  const normalNote  = (shakeNotes['_normal'] || '').trim();
+  const generalNote = (document.getElementById('general-notes').value||'').trim();
+
+  const order = {
+    id: genId(), courseName: name, coachName: coach,
+    courseStart: startDate.toISOString(), courseEnd: endDate.toISOString(),
+    items: buildItems(), togoItems: togoItems.map(i=>({...i})), porridge: extras.porridge||0,
+    normalNote, generalNote,
+    status: 'pending', createdAt: new Date().toISOString(),
+  };
+  orders.unshift(order);
+  saveOrders();
+  updateBadge();
+  notifiedNew.add(order.id); // mark so we show toast once on counter
+
+  document.getElementById('success-detail').textContent =
+    name + ' · ' + coach + ' · ' + time + '–' + fmtTime(endDate.toISOString()) + ' Uhr';
+  document.getElementById('order-form').style.display = 'none';
+  document.getElementById('success-screen').style.display = 'block';
+
+  // If counter tab is visible, show toast + re-render
+  if (document.getElementById('counter-view').classList.contains('active')) {
+    showToast('🆕 Neue Bestellung: ' + name + ' (' + coach + ')', false);
+    renderCounter();
+  }
+}
+
+function showError(msg) {
+  const el = document.getElementById('error-msg');
+  el.textContent = msg;
+  el.classList.add('show');
+}
+
+function resetForm() {
+  document.getElementById('course-name').value = '';
+  document.getElementById('coach-name').value  = '';
+
+  // Rebuild time select for current time window
+  const sel = document.getElementById('course-time');
+  sel.innerHTML = '<option value="">– Uhrzeit wählen –</option>';
+  const now = new Date();
+  const nowMins = now.getHours()*60 + now.getMinutes();
+  const windowStart = Math.max(6*60, nowMins-60);
+  const windowEnd   = Math.min(22*60, nowMins+60);
+  for (let h=6; h<=22; h++) {
+    for (let m of [0,15,30,45]) {
+      if (h===22 && m>0) break;
+      const tot = h*60+m;
+      if (tot < windowStart || tot > windowEnd) continue;
+      const val = String(h).padStart(2,'0')+':'+String(m).padStart(2,'0');
+      const opt = document.createElement('option');
+      opt.value = val; opt.textContent = val;
+      sel.appendChild(opt);
+    }
+  }
+  const roundedMins = Math.ceil(nowMins/15)*15;
+  const rh = Math.floor(roundedMins/60), rm = roundedMins%60;
+  if (rh<=22) {
+    const auto = String(rh).padStart(2,'0')+':'+String(rm).padStart(2,'0');
+    if ([...sel.options].some(o=>o.value===auto)) sel.value = auto;
+  }
+
+  initCounts(); eraserOn = false;
+  document.getElementById('eraser-btn').classList.remove('active');
+  document.getElementById('eraser-hint').textContent = 'Einschalten → Feld antippen = −1';
+  const nc = document.getElementById('shake-notes-container');
+  if (nc) nc.remove();
+  renderGrids(); renderTogoList(); updateSummary();
+  document.getElementById('general-notes').value = '';
+  if (document.getElementById('togo-note')) document.getElementById('togo-note').value = '';
+  if (document.getElementById('togo-note-wrap')) document.getElementById('togo-note-wrap').style.display = 'none';
+  if (document.getElementById('togo-note-btn')) document.getElementById('togo-note-btn').classList.remove('has-note');
+  document.getElementById('extra-porridge').textContent = '0';
+  document.getElementById('extra-porridge').className = 'extra-count-num zero';
+  document.getElementById('error-msg').classList.remove('show');
+  document.getElementById('order-form').style.display = 'block';
+  document.getElementById('success-screen').style.display = 'none';
+}
+
+// ── Counter ───────────────────────────────────────────────────────────────────
+function fmtTime(iso) {
+  return new Date(iso).toLocaleTimeString('de-AT', { hour:'2-digit', minute:'2-digit' });
+}
+
+function buildCounterCard(order, isArchived) {
+  const now       = new Date();
+  const diff      = new Date(order.courseEnd) - now;
+  const isDone    = order.status==='confirmed';
+  const isOver    = diff<=0;
+  const urgent    = diff<600000 && diff>0 && !isDone;
+  const mins      = Math.max(0, Math.floor(diff/60000));
+  const secs      = Math.max(0, Math.floor((diff%60000)/1000));
+
+  let badgeCls='', badgeTxt='';
+  if (isDone)      { badgeCls='done-badge'; badgeTxt='✓ Fertig'; }
+  else if (isOver) { badgeCls='urgent'; badgeTxt='Kurs beendet'; }
+  else if (urgent) { badgeCls='urgent'; badgeTxt=mins+':'+String(secs).padStart(2,'0')+' min'; }
+  else             { badgeTxt=mins+':'+String(secs).padStart(2,'0')+' min'; }
+
+  const timeCls = isDone ? 'done-time' : (urgent||isOver) ? 'urgent-time' : '';
+  const cardCls = isDone ? 'done' : (urgent||isOver) ? 'urgent' : '';
+
+  const itemsHtml = order.items.map(item => {
+    return '<span class="shake-tag ' + SHAKE_TAG_CLS[item.shake] + '">'
+      + '<span class="tag-dot"></span>'
+      + (SHAKE_NAMES[item.shake]||item.shake) + ' ' + item.size
+      + '<span class="count-label">' + item.count + '</span>'
+      + '</span>';
+  }).join('');
+  const togoHtml = (order.togoItems||[]).map(item =>
+    '<span class="shake-tag ' + SHAKE_TAG_CLS[item.shake] + '" style="border-style:dashed">'
+    + '<span class="tag-dot"></span>'
+    + '<strong>' + item.customer + '</strong>&nbsp;'
+    + (SHAKE_NAMES[item.shake]||item.shake) + ' ' + item.size
+    + '<span class="togo-label">to-go</span>'
+    + (item.note ? '<span style="font-size:10px;font-style:italic;opacity:.85;">📝 '+item.note+'</span>' : '')
+    + '</span>'
+  ).join('');
+  const porridgeHtml = order.porridge>0
+    ? '<span class="porridge-tag">🥣 Porridge <span class="count-label">'+order.porridge+'</span></span>' : '';
+  const normalNoteHtml = order.normalNote
+    ? '<div class="note-chip"><span class="note-chip-icon">📝</span><span><strong>Shakes:</strong> ' + order.normalNote + '</span></div>' : '';
+  const generalNoteHtml = order.generalNote
+    ? '<div class="note-chip"><span class="note-chip-icon">📋</span><span>' + order.generalNote + '</span></div>' : '';
+
+  const confirmBtn = (!isDone && !isArchived)
+    ? '<button class="confirm-btn" onclick="confirmOrder(\''+order.id+'\')">✓ Bestellung abgeschlossen</button>' : '';
+
+  return '<div class="order-card ' + cardCls + '" id="card-' + order.id + '">'
+    + '<div class="order-card-top">'
+    + '<div class="order-course-name">' + order.courseName + '</div>'
+    + '<div class="countdown-badge ' + badgeCls + '" data-order="' + order.id + '">' + badgeTxt + '</div>'
+    + '</div>'
+    + '<div class="order-time-block ' + timeCls + '">'
+    + '<div>'
+    + '<div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;margin-bottom:2px;">Kurszeit</div>'
+    + '<div class="order-time-main">' + fmtTime(order.courseStart) + ' – ' + fmtTime(order.courseEnd) + '</div>'
+    + '</div>'
+    + '</div>'
+    + '<div class="order-coach">👤 ' + (order.coachName||'–') + '</div>'
+    + '<div class="order-items">' + itemsHtml + (togoHtml ? '<div style="width:100%;height:1px;background:#f3f4f6;margin:6px 0"></div>' + togoHtml : '') + porridgeHtml + '</div>'
+    + normalNoteHtml + generalNoteHtml
+    + confirmBtn
+    + '</div>';
+}
+
+function renderCounter() {
+  const now      = new Date();
+  const dateStr  = getCounterDateStr();
+  const cutoff   = 4 * 60 * 60 * 1000;
+
+  // Only show orders matching selected date AND not older than 4h (those go to archive)
+  const dateOrders = orders.filter(o => isoDate(o.courseStart) === dateStr);
+  const active     = dateOrders.filter(o => (now - new Date(o.courseEnd)) <= cutoff);
+  const pending    = active.filter(o => o.status==='pending');
+  const confirmed  = active.filter(o => o.status==='confirmed');
+
+  document.getElementById('counter-sub').textContent = pending.length > 0
+    ? pending.length + ' offene Bestellung' + (pending.length!==1?'en':'')
+    : 'Keine offenen Bestellungen';
+
+  const container = document.getElementById('orders-container');
+  if (active.length===0) {
+    container.innerHTML = '<div class="empty-state"><div style="font-size:40px;margin-bottom:12px">☕</div><div style="font-weight:600">Keine Bestellungen für diesen Tag</div></div>';
+  } else {
+    let html = '';
+    if (pending.length>0)   html += '<div class="section-group"><p class="section-group-label">Offen</p>'         + pending.map(o=>buildCounterCard(o,false)).join('') + '</div>';
+    if (confirmed.length>0) html += '<div class="section-group"><p class="section-group-label">Abgeschlossen</p>' + confirmed.map(o=>buildCounterCard(o,false)).join('') + '</div>';
+    container.innerHTML = html;
+  }
+
+  // Refresh archive if open
+  if (archiveOpen) renderArchive();
+}
+
+function confirmOrder(id) {
+  orders = orders.map(o => o.id===id ? {...o, status:'confirmed'} : o);
+  saveOrders();
+  updateBadge();
+  renderCounter();
+}
+
+// ── Clock + Notifications ─────────────────────────────────────────────────────
+const shownNewToast    = new Set();
+const shownUrgentToast = new Set();
+
+function startClock() {
+  function tick() {
+    const now = new Date();
+    document.getElementById('clock').textContent =
+      now.toLocaleTimeString('de-AT', { hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+    const isCounterVisible = document.getElementById('counter-view').classList.contains('active');
+
+    orders.filter(o => o.status==='pending').forEach(order => {
+      const diff  = new Date(order.courseEnd) - now;
+      const isOver = diff<=0;
+      const urgent = diff < 600000 && diff > 0;
+      const mins   = Math.max(0, Math.floor(diff/60000));
+      const secs   = Math.max(0, Math.floor((diff%60000)/1000));
+
+      // Update live countdown badges
+      const badge = document.querySelector('[data-order="' + order.id + '"]');
+      const card  = document.getElementById('card-'+order.id);
+      if (badge) {
+        badge.textContent = isOver ? 'Kurs beendet' : mins+':'+String(secs).padStart(2,'0')+' min';
+        badge.className = 'countdown-badge' + (isOver||urgent?' urgent':'');
+      }
+      if (card) {
+        card.className = 'order-card' + (isOver||urgent?' urgent':' ');
+        const tb = card.querySelector('.order-time-block');
+        if (tb) tb.className = 'order-time-block' + (isOver||urgent?' urgent-time':'');
+      }
+
+      // Toast: new order notification (fires once per order on counter tab)
+      if (isCounterVisible && !shownNewToast.has(order.id)) {
+        shownNewToast.add(order.id);
+        showToast('🆕 Neue Bestellung: ' + order.courseName + ' (' + order.coachName + ')', false);
+        playSound('new');
+      }
+
+      // Toast: 15min warning
+      if (urgent && diff < 900000 && !shownUrgentToast.has(order.id)) {
+        shownUrgentToast.add(order.id);
+        if (isCounterVisible) {
+          showToast('⏰ Erinnerung: ' + order.courseName + ' endet in ' + mins + ' Min!', true);
+          playSound('urgent');
+        }
+      }
+    });
+  }
+  clearInterval(clockInterval);
+  clockInterval = setInterval(tick, 1000);
+  tick();
+}
+
+// ── Sound System ──────────────────────────────────────────────────────────────
+let soundEnabled = JSON.parse(localStorage.getItem('sound-enabled') || 'false');
+let audioCtx = null;
+
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function toggleSound() {
+  soundEnabled = !soundEnabled;
+  localStorage.setItem('sound-enabled', JSON.stringify(soundEnabled));
+  const track = document.getElementById('sound-track');
+  if (track) track.classList.toggle('on', soundEnabled);
+}
+
+function playSound(type) {
+  if (!soundEnabled) return;
+  try {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+    if (type === 'new') {
+      // Two ascending tones – friendly notification
+      [[440, 0, 0.15], [660, 0.18, 0.18]].forEach(([freq, start, dur]) => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(freq, now + start);
+        gain.gain.setValueAtTime(0, now + start);
+        gain.gain.linearRampToValueAtTime(0.35, now + start + 0.03);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + start + dur);
+        osc.start(now + start);
+        osc.stop(now + start + dur + 0.05);
+      });
+    } else if (type === 'urgent') {
+      // Three short urgent pulses
+      [0, 0.2, 0.4].forEach(start => {
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880, now + start);
+        gain.gain.setValueAtTime(0, now + start);
+        gain.gain.linearRampToValueAtTime(0.2, now + start + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + start + 0.15);
+        osc.start(now + start);
+        osc.stop(now + start + 0.18);
+      });
+    }
+  } catch(e) { /* AudioContext blocked before user gesture */ }
+}
+
+// ── Admin password ────────────────────────────────────────────────────────────
+const ADMIN_PW = 'Base5';
+let adminUnlocked = sessionStorage.getItem('admin-unlocked') === '1';
+
+function checkAdminPw() {
+  const input = document.getElementById('admin-pw-input');
+  const errEl = document.getElementById('admin-pw-error');
+  if (input.value === ADMIN_PW) {
+    adminUnlocked = true;
+    sessionStorage.setItem('admin-unlocked', '1');
+    showAdminContent();
+    input.value = '';
+    errEl.style.display = 'none';
+  } else {
+    errEl.style.display = 'block';
+    input.value = '';
+    input.focus();
+    input.style.borderColor = '#ef4444';
+    setTimeout(() => { input.style.borderColor = '#d1d5db'; }, 1200);
+  }
+}
+
+function showAdminContent() {
+  document.getElementById('admin-lock').style.display    = 'none';
+  document.getElementById('admin-content').style.display = 'block';
+  renderAdmin();
+}
+
+function lockAdmin() {
+  adminUnlocked = false;
+  sessionStorage.removeItem('admin-unlocked');
+  document.getElementById('admin-lock').style.display    = 'block';
+  document.getElementById('admin-content').style.display = 'none';
+}
+
+function togglePwVisibility() {
+  const inp = document.getElementById('admin-pw-input');
+  const eye = document.getElementById('pw-eye');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  eye.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+// ── Admin ─────────────────────────────────────────────────────────────────────
+function clearAllOrders() {
+  if (!confirm('Wirklich alle Bestellungen löschen?')) return;
+  orders = [];
+  saveOrders();
+  updateBadge();
+  renderAdmin();
+  renderCounter();
+}
+
+function deleteOrder(id) {
+  orders = orders.filter(o => o.id !== id);
+  saveOrders();
+  updateBadge();
+  renderAdmin();
+  renderCounter();
+}
+
+function renderAdmin() {
+  renderShakeEditor();
+
+  const filteredOrders = getAdminOrders();
+
+  // ── KPIs ──
+  const total = filteredOrders.length;
+  const totalShakes = filteredOrders.reduce((s,o) => s + o.items.reduce((a,i)=>a+i.count,0), 0);
+  const totalPorridge = filteredOrders.reduce((s,o)=>s+(o.porridge||0),0);
+  document.getElementById('stats-kpi').innerHTML = `
+    <div class="stat-card"><div class="stat-num">${total}</div><div class="stat-label">Bestellungen gesamt</div></div>
+    <div class="stat-card"><div class="stat-num">${totalShakes}</div><div class="stat-label">Shakes gesamt</div></div>
+    <div class="stat-card"><div class="stat-num">${totalPorridge}</div><div class="stat-label">Porridge gesamt</div></div>
+  `;
+
+  // ── Chart: Shakes by type ──
+  const shakeCounts = {};
+  SHAKES.forEach(s => shakeCounts[s] = 0);
+  filteredOrders.forEach(o => o.items.forEach(i => { shakeCounts[i.shake] = (shakeCounts[i.shake]||0) + i.count; }));
+  drawBarChart('chart-shakes', SHAKES.map(s => SHAKE_NAMES[s]), SHAKES.map(s => shakeCounts[s]), SHAKES.map(s => SHAKE_DOT[s]));
+
+  // ── Chart: Orders by hour ──
+  const hourCounts = {};
+  for (let h=6;h<=22;h++) hourCounts[h]=0;
+  filteredOrders.forEach(o => { const h = new Date(o.courseStart).getHours(); hourCounts[h] = (hourCounts[h]||0) + 1; });
+  const hourKeys = Object.keys(hourCounts).map(Number);
+  drawBarChart('chart-hours', hourKeys.map(h => h+':00'), hourKeys.map(h => hourCounts[h]), hourKeys.map(() => '#6366f1'));
+
+  // ── Chart: Size distribution ──
+  const sizeCounts = { S:0, M:0, L:0 };
+  filteredOrders.forEach(o => o.items.forEach(i => { sizeCounts[i.size] = (sizeCounts[i.size]||0) + i.count; }));
+  drawBarChart('chart-sizes', ['S','M','L'], [sizeCounts.S, sizeCounts.M, sizeCounts.L], ['#f59e0b','#3b82f6','#8b5cf6']);
+
+  // ── History table ──
+  const tbody = filteredOrders.length === 0
+    ? '<p style="color:#9ca3af;font-size:13px;text-align:center;padding:20px 0">Keine Bestellungen für diesen Zeitraum</p>'
+    : `<table class="history-table">
+      <thead><tr>
+        <th>Datum</th>
+        <th>Kurs / Coach</th>
+        <th>Kurszeit</th>
+        <th>Bestellung</th>
+        <th>Status</th>
+        <th></th>
+      </tr></thead>
+      <tbody>${filteredOrders.map(o => {
+        const itemTags = o.items.map(i =>
+          '<span class="mini-tag '+SHAKE_TAG_CLS[i.shake]+'">'+(i.count>1?i.count+'× ':'')+SHAKE_NAMES[i.shake]+' '+i.size+'</span>'
+        ).join('');
+        const togoTags = (o.togoItems||[]).map(i =>
+          '<span class="mini-tag '+SHAKE_TAG_CLS[i.shake]+'" style="border:1px dashed currentColor">'+i.customer+': '+SHAKE_NAMES[i.shake]+' '+i.size+' ☕</span>'
+        ).join('');
+        const porridgeTag = o.porridge>0 ? '<span class="mini-tag porridge">🥣×'+o.porridge+'</span>' : '';
+        const statusBg  = o.status==='confirmed' ? '#d1fae5' : '#fef9c3';
+        const statusCol = o.status==='confirmed' ? '#065f46' : '#854d0e';
+        const statusTxt = o.status==='confirmed' ? '✓ Fertig' : 'Offen';
+        const dateStr   = new Date(o.courseStart).toLocaleDateString('de-AT', { day:'2-digit', month:'2-digit', year:'numeric' });
+        const createdStr = o.createdAt ? new Date(o.createdAt).toLocaleTimeString('de-AT', { hour:'2-digit', minute:'2-digit' }) : '–';
+        return `<tr>
+          <td><div style="font-weight:700">${dateStr}</div><div class="ht-time">eingegangen ${createdStr}</div></td>
+          <td><div class="ht-course">${o.courseName}</div><div class="ht-time">👤 ${o.coachName||'–'}</div></td>
+          <td><div style="font-weight:700">${fmtTime(o.courseStart)}</div><div class="ht-time">– ${fmtTime(o.courseEnd)}</div></td>
+          <td><div class="ht-items">${itemTags}${togoTags}${porridgeTag}</div></td>
+          <td><span style="padding:3px 9px;border-radius:8px;font-size:12px;font-weight:700;background:${statusBg};color:${statusCol}">${statusTxt}</span></td>
+          <td><button onclick="deleteOrder('${o.id}')" style="background:none;border:none;color:#9ca3af;cursor:pointer;font-size:16px;padding:2px 6px;border-radius:6px;transition:color .15s;" onmouseover="this.style.color='#ef4444'" onmouseout="this.style.color='#9ca3af'" title="Löschen">🗑</button></td>
+        </tr>`;
+      }).join('')}</tbody></table>`;
+  document.getElementById('order-history-table').innerHTML = tbody;
+}
+
+function drawBarChart(canvasId, labels, values, colors) {
+  const canvas = document.getElementById(canvasId);
+  if (!canvas) return;
+  const dpr = window.devicePixelRatio || 1;
+  const W = canvas.parentElement.clientWidth || 480;
+  const H = parseInt(canvas.getAttribute('height')) || 160;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  canvas.style.width  = W + 'px';
+  canvas.style.height = H + 'px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const pad = { top:16, right:12, bottom:36, left:36 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+  const max = Math.max(...values, 1);
+  const n = labels.length;
+  const barW = Math.max(8, Math.min(52, (chartW / n) * 0.6));
+  const gap   = chartW / n;
+
+  ctx.clearRect(0,0,W,H);
+
+  // Grid lines
+  ctx.strokeStyle = '#f3f4f6';
+  ctx.lineWidth = 1;
+  for (let i=0;i<=4;i++) {
+    const y = pad.top + chartH - (chartH/4)*i;
+    ctx.beginPath(); ctx.moveTo(pad.left, y); ctx.lineTo(W-pad.right, y); ctx.stroke();
+    ctx.fillStyle='#9ca3af'; ctx.font='10px Inter,sans-serif'; ctx.textAlign='right';
+    ctx.fillText(Math.round((max/4)*i), pad.left-4, y+4);
+  }
+
+  // Bars
+  values.forEach((v, i) => {
+    const bh = v === 0 ? 2 : Math.max(4, (v/max)*chartH);
+    const x  = pad.left + gap*i + gap/2 - barW/2;
+    const y  = pad.top + chartH - bh;
+    const col = Array.isArray(colors) ? (colors[i]||'#6366f1') : colors;
+
+    // Rounded top
+    ctx.fillStyle = col;
+    const r = Math.min(5, barW/2);
+    ctx.beginPath();
+    ctx.moveTo(x+r, y);
+    ctx.lineTo(x+barW-r, y);
+    ctx.quadraticCurveTo(x+barW, y, x+barW, y+r);
+    ctx.lineTo(x+barW, y+bh);
+    ctx.lineTo(x, y+bh);
+    ctx.lineTo(x, y+r);
+    ctx.quadraticCurveTo(x, y, x+r, y);
+    ctx.fill();
+
+    // Value label on top
+    if (v > 0) {
+      ctx.fillStyle='#374151'; ctx.font='bold 11px Inter,sans-serif'; ctx.textAlign='center';
+      ctx.fillText(v, x+barW/2, y-5);
+    }
+
+    // X label
+    ctx.fillStyle='#6b7280'; ctx.font='11px Inter,sans-serif'; ctx.textAlign='center';
+    ctx.fillText(labels[i], x+barW/2, H-pad.bottom+14);
+  });
+}
+
+// ── Counter date filter ────────────────────────────────────────────────────────
+let counterDateMode = 'today';
+let counterCustomDate = '';
+
+function isoDate(iso) { return iso.slice(0,10); }
+function todayStr() { return new Date().toISOString().slice(0,10); }
+function yesterdayStr() { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
+
+function setCounterDate(mode) {
+  counterDateMode = mode;
+  const input = document.getElementById('counter-date-input');
+  document.querySelectorAll('.date-strip-btn').forEach(b => b.classList.remove('active'));
+  if (mode === 'today')     { document.querySelector('.date-strip-btn:nth-child(1)').classList.add('active'); }
+  if (mode === 'yesterday') { document.querySelector('.date-strip-btn:nth-child(2)').classList.add('active'); }
+  if (mode === 'custom')    { counterCustomDate = input.value; }
+  renderCounter();
+}
+
+function getCounterDateStr() {
+  if (counterDateMode === 'today')     return todayStr();
+  if (counterDateMode === 'yesterday') return yesterdayStr();
+  return counterCustomDate || todayStr();
+}
+
+// ── Archive ───────────────────────────────────────────────────────────────────
+let archiveOpen = false;
+function toggleArchive() {
+  archiveOpen = !archiveOpen;
+  document.getElementById('archive-body').classList.toggle('open', archiveOpen);
+  document.getElementById('archive-chevron').classList.toggle('open', archiveOpen);
+  if (archiveOpen) renderArchive();
+}
+
+function renderArchive() {
+  const now = new Date();
+  const dateStr = getCounterDateStr();
+  const cutoff = 4 * 60 * 60 * 1000; // 4h in ms
+  const archived = orders.filter(o => {
+    if (isoDate(o.courseStart) !== dateStr) return false;
+    return (now - new Date(o.courseEnd)) > cutoff;
+  });
+  const el = document.getElementById('archive-body');
+  if (archived.length === 0) {
+    el.innerHTML = '<p style="font-size:13px;color:#9ca3af;padding:12px 0">Keine archivierten Bestellungen für diesen Tag</p>';
+    return;
+  }
+  el.innerHTML = archived.map(o => buildCounterCard(o, true)).join('');
+}
+
+// ── Pin tab ───────────────────────────────────────────────────────────────────
+
+function pinTab(tab) {
+  pinnedTab = tab;
+  localStorage.setItem('pinned-tab', tab || '');
+  updatePinBar();
+  if (tab) switchTab(tab);
+}
+
+function togglePinDropdown() {
+  const dd = document.getElementById('pin-dropdown');
+  dd.classList.toggle('open');
+  // Close on outside click
+  if (dd.classList.contains('open')) {
+    setTimeout(() => {
+      document.addEventListener('click', function closeDd(e) {
+        if (!document.getElementById('pin-dropdown-wrap') && !e.target.closest('.pin-dropdown-wrap')) {
+          document.getElementById('pin-dropdown').classList.remove('open');
+          document.removeEventListener('click', closeDd);
+        } else if (!e.target.closest('.pin-dropdown-wrap')) {
+          document.getElementById('pin-dropdown').classList.remove('open');
+          document.removeEventListener('click', closeDd);
+        }
+      });
+    }, 10);
+  }
+}
+
+function updatePinBar() {
+  const iconBtn = document.getElementById('pin-icon-btn');
+  const unpinOpt = document.getElementById('pin-unpin-opt');
+  ['coach','counter','admin'].forEach(t => {
+    const opt = document.getElementById('pin-opt-'+t);
+    if (opt) opt.classList.toggle('active', pinnedTab === t);
+  });
+  if (iconBtn) iconBtn.classList.toggle('is-pinned', !!pinnedTab);
+  if (unpinOpt) unpinOpt.style.display = pinnedTab ? '' : 'none';
+  // Hide/show tab buttons based on pin
+  document.querySelectorAll('.tab-btn').forEach(b => {
+    b.style.display = pinnedTab ? 'none' : '';
+  });
+  const activeBtn = pinnedTab ? document.getElementById('tab-'+pinnedTab) : null;
+  if (activeBtn) activeBtn.style.display = 'flex';
+  // Close dropdown after action
+  document.getElementById('pin-dropdown').classList.remove('open');
+}
+
+// ── Admin date view ───────────────────────────────────────────────────────────
+let adminViewMode = 'all';
+
+function setAdminView(mode) {
+  adminViewMode = mode;
+  ['all','day','month'].forEach(m => {
+    document.getElementById('admin-view-'+m).classList.toggle('active', m === mode);
+  });
+  document.getElementById('admin-date-input').style.display  = mode === 'day'   ? '' : 'none';
+  document.getElementById('admin-month-input').style.display = mode === 'month' ? '' : 'none';
+  renderAdmin();
+}
+
+function getAdminOrders() {
+  if (adminViewMode === 'all') return orders;
+  if (adminViewMode === 'day') {
+    const d = document.getElementById('admin-date-input').value || todayStr();
+    return orders.filter(o => isoDate(o.courseStart) === d);
+  }
+  if (adminViewMode === 'month') {
+    const m = document.getElementById('admin-month-input').value || todayStr().slice(0,7);
+    return orders.filter(o => o.courseStart.slice(0,7) === m);
+  }
+  return orders;
+}
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+applyShakeSettings();
+renderGrids();
+renderTogoList();
+updateBadge();
+startClock();
+
+// Set today's date in date input
+document.getElementById('counter-date-input').value = todayStr();
+document.getElementById('admin-date-input').value   = todayStr();
+document.getElementById('admin-month-input').value  = todayStr().slice(0,7);
+
+// Init sound toggle visual state
+(function initSound() {
+  const track = document.getElementById('sound-track');
+  if (track && soundEnabled) track.classList.add('on');
+  document.addEventListener('click', function unlock() {
+    try { getAudioCtx().resume(); } catch(e) {}
+    document.removeEventListener('click', unlock);
+  }, { once: true });
+})();
+
+// Init pin
+updatePinBar();
+
+// Load data from Firebase, then start polling
+loadFromFirebase(() => {
+  orders.forEach(o => shownNewToast.add(o.id)); // don't notify for existing orders
+  updateBadge();
+  if (document.getElementById('counter-view').classList.contains('active')) renderCounter();
+  if (pinnedTab) switchTab(pinnedTab);
+});
+loadSettingsFromFirebase();
+startFirebasePolling();
+</script>
+
+</body>
+</html>
