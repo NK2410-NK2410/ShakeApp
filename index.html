@@ -1274,11 +1274,14 @@ function renderCounter() {
   const dateStr  = getCounterDateStr();
   const cutoff   = 4 * 60 * 60 * 1000;
 
-  // Only show orders matching selected date AND not older than 4h (those go to archive)
   const dateOrders = orders.filter(o => isoDate(o.courseStart) === dateStr);
-  const active     = dateOrders.filter(o => (now - new Date(o.courseEnd)) <= cutoff);
-  const pending    = active.filter(o => o.status==='pending');
-  const confirmed  = active.filter(o => o.status==='confirmed');
+
+  // Pending orders always show; confirmed only if within 4h cutoff
+  const active  = dateOrders.filter(o =>
+    o.status === 'pending' || (now - new Date(o.courseEnd)) <= cutoff
+  );
+  const pending   = active.filter(o => o.status==='pending');
+  const confirmed = active.filter(o => o.status==='confirmed');
 
   document.getElementById('counter-sub').textContent = pending.length > 0
     ? pending.length + ' offene Bestellung' + (pending.length!==1?'en':'')
@@ -1611,9 +1614,25 @@ function drawBarChart(canvasId, labels, values, colors) {
 let counterDateMode = 'today';
 let counterCustomDate = '';
 
-function isoDate(iso) { return iso.slice(0,10); }
-function todayStr() { return new Date().toISOString().slice(0,10); }
-function yesterdayStr() { const d = new Date(); d.setDate(d.getDate()-1); return d.toISOString().slice(0,10); }
+function isoDate(iso) {
+  // Use local date, not UTC, to avoid timezone shift issues
+  const d = new Date(iso);
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+function todayStr() {
+  const d = new Date();
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
+function yesterdayStr() {
+  const d = new Date(); d.setDate(d.getDate()-1);
+  return d.getFullYear() + '-' +
+    String(d.getMonth()+1).padStart(2,'0') + '-' +
+    String(d.getDate()).padStart(2,'0');
+}
 
 function setCounterDate(mode) {
   counterDateMode = mode;
