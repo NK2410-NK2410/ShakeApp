@@ -805,18 +805,42 @@ initCounts();
 const FB_URL = 'https://shakeapp-b680b-default-rtdb.europe-west1.firebasedatabase.app';
 
 function fbFetch(path, method, data) {
+  const url = FB_URL + path + '.json';
   const opts = { method: method || 'GET', headers: { 'Content-Type': 'application/json' } };
   if (data !== undefined) opts.body = JSON.stringify(data);
-  return fetch(FB_URL + path + '.json', opts).then(r => r.json());
+  return fetch(url, opts).then(r => {
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    return r.json();
+  });
 }
 
 function saveOrders() {
-  // Write full orders array to Firebase
-  fbFetch('/orders.json', 'PUT', orders).catch(e => console.error('Firebase write error:', e));
+  // Rewrite entire orders list to Firebase
+  const payload = {};
+  orders.forEach(o => { payload[o.id] = o; });
+  fbFetch('/orders', 'PUT', payload)
+    .then(() => setConnectionStatus('online'))
+    .catch(e => {
+      console.error('Firebase write error:', e);
+      setConnectionStatus('offline');
+      // Fallback: save locally
+      localStorage.setItem('shake-orders', JSON.stringify(orders));
+    });
+}
+
+function saveOrder(order) {
+  // Write single order by its id key
+  fbFetch('/orders/' + order.id, 'PUT', order)
+    .then(() => setConnectionStatus('online'))
+    .catch(e => {
+      console.error('Firebase write error:', e);
+      setConnectionStatus('offline');
+      localStorage.setItem('shake-orders', JSON.stringify(orders));
+    });
 }
 
 function saveShakeSettingsRemote() {
-  fbFetch('/settings/shakes.json', 'PUT', shakeSettings).catch(e => console.error('Firebase settings write error:', e));
+  fbFetch('/settings/shakes', 'PUT', shakeSettings).catch(e => console.error('Firebase settings write error:', e));
 }
 
 function setConnectionStatus(state) {
@@ -829,24 +853,30 @@ function setConnectionStatus(state) {
 
 function loadFromFirebase(callback) {
   setConnectionStatus('loading');
-  fbFetch('/orders.json', 'GET')
+  fbFetch('/orders', 'GET')
     .then(data => {
-      orders = Array.isArray(data) ? data : (data ? Object.values(data) : []);
-      // Sort newest first
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        orders = Object.values(data);
+      } else if (Array.isArray(data)) {
+        orders = data;
+      } else {
+        orders = [];
+      }
+      orders = orders.filter(Boolean);
       orders.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
       setConnectionStatus('online');
       if (callback) callback();
     })
-    .catch(() => {
+    .catch(e => {
+      console.error('Firebase load error:', e);
       setConnectionStatus('offline');
-      // Fall back to localStorage
       orders = JSON.parse(localStorage.getItem('shake-orders') || '[]');
       if (callback) callback();
     });
 }
 
 function loadSettingsFromFirebase() {
-  fbFetch('/settings/shakes.json', 'GET')
+  fbFetch('/settings/shakes', 'GET')
     .then(data => {
       if (data && Array.isArray(data)) {
         shakeSettings = data;
@@ -855,15 +885,20 @@ function loadSettingsFromFirebase() {
         renderGrids();
       }
     })
-    .catch(() => {/* use localStorage fallback already loaded */});
+    .catch(() => {});
 }
 
 // Poll Firebase every 5 seconds for real-time updates
 function startFirebasePolling() {
   setInterval(() => {
-    fbFetch('/orders.json', 'GET')
+    fbFetch('/orders', 'GET')
       .then(data => {
-        const fresh = Array.isArray(data) ? data : (data ? Object.values(data) : []);
+        let fresh = [];
+        if (data && typeof data === 'object' && !Array.isArray(data)) {
+          fresh = Object.values(data).filter(Boolean);
+        } else if (Array.isArray(data)) {
+          fresh = data.filter(Boolean);
+        }
         fresh.sort((a,b) => new Date(b.createdAt) - new Date(a.createdAt));
         setConnectionStatus('online');
 
@@ -882,7 +917,6 @@ function startFirebasePolling() {
         });
 
         orders = fresh;
-        // Re-render only if counter or admin tab is active
         if (document.getElementById('counter-view').classList.contains('active')) renderCounter();
         if (document.getElementById('admin-view').classList.contains('active') && adminUnlocked) renderAdmin();
       })
@@ -1134,7 +1168,7 @@ function submitOrder() {
     status: 'pending', createdAt: new Date().toISOString(),
   };
   orders.unshift(order);
-  saveOrders();
+  saveOrder(order);  // write just this order to Firebase
   updateBadge();
   notifiedNew.add(order.id); // mark so we show toast once on counter
 
@@ -1303,7 +1337,8 @@ function renderCounter() {
 
 function confirmOrder(id) {
   orders = orders.map(o => o.id===id ? {...o, status:'confirmed'} : o);
-  saveOrders();
+  const confirmed = orders.find(o => o.id===id);
+  if (confirmed) saveOrder(confirmed);
   updateBadge();
   renderCounter();
 }
@@ -1469,6 +1504,9 @@ function clearAllOrders() {
 
 function deleteOrder(id) {
   orders = orders.filter(o => o.id !== id);
+  // Delete from Firebase
+  fbFetch('/orders/' + id, 'DELETE')
+    .catch(e => console.error('Firebase delete error:', e));
   saveOrders();
   updateBadge();
   renderAdmin();
